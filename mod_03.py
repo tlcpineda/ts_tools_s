@@ -1,0 +1,304 @@
+import os
+
+from PIL import Image
+
+from lib import (
+    clean_number,
+    continue_sequence,
+    copy_file,
+    display_message,
+    display_path_desc,
+    ensure_path_exists,
+    hor_bar,
+    identify_path,
+    parse_pathname,
+    rename_path,
+    welcome_sequence,
+)
+
+# Module variables
+mod_name = "Compile Revision Files"
+mod_ver = "1"
+date = "26 Oct 2026"
+email = "tlcpineda.projects@gmail.com"
+compile_dir_base = "COMPILED TO PDF"
+jpeg_res = 72  # dpi
+
+
+def compile_revision() -> None:
+    print(">>> Select source PSD folder ...")
+
+    path = str(identify_path("folder"))
+
+    if not path:
+        print("\n<=> No folder selected.")
+        return
+
+    input_path = os.path.normpath(path)  # Normalise path.
+
+    display_message("INFO", "Processing files in folder ...")
+
+    parent, base = display_path_desc(input_path, "folder")
+    psd_dir, jpeg_dir, pdf_name = gen_revision_pathnames(parent, base)
+    psd_files = filter_files(input_path)
+
+    if not psd_files:
+        print("\n<=> No PSD file fit to be compiled.")
+        return
+
+    psd_files.sort(key=sort_by_ordinal_num)
+    for_pdf_pages = []
+
+    try:
+        # Ensure that destination folders exists.
+        ensure_path_exists(psd_dir, "folder")
+        ensure_path_exists(jpeg_dir, "folder")
+
+        for file_ind, filename in enumerate(psd_files):
+            print()
+            hor_bar(100, f"Processing {filename} ({file_ind + 1} of {len(psd_files)})")
+
+            source_file = os.path.join(input_path, filename)
+            _, s_basename = display_path_desc(source_file, "file")
+
+            s_basename = os.path.splitext(filename)[0]  # PSD filename, with ext
+            # Get four-digit ordinal page numbering; second item in split;
+            # otherwise, file might have be using the four-digit numbering already.
+            bname = s_basename.split(" ")[1] if " " in s_basename else s_basename
+
+            # Create matchng JPEG file.
+            with Image.open(source_file) as img:
+                img_mode = "CMYK" if img.mode == "CMYK" else "RGB"
+                rgb_img = img.convert(img_mode)
+                jpeg_path = save_jpeg(rgb_img, jpeg_dir, bname)
+
+                # Append path of saved JPEG file, file PDF compilation.
+                for_pdf_pages.append(jpeg_path)
+
+            copy_file(input_path, psd_dir, s_basename, "psd")
+
+            # Rename PSD files if ordinal page numbering is affixed.
+            if s_basename != bname:
+                rename_path(
+                    parse_pathname(psd_dir, s_basename, "psd", "file"),
+                    parse_pathname(psd_dir, bname, "psd", "file"),
+                    "file",
+                )
+
+            print()
+            hor_bar(100)
+
+        if for_pdf_pages:
+            for_pdf_pages = [p for p in for_pdf_pages if p.strip()]
+            compile_pdf_file(for_pdf_pages, pdf_name)
+
+        #Clean up JPEG folder in revision folder; JPEG files not required in PROJECT S.
+        del_jpeg(jpeg_dir)
+
+        return
+
+    except Exception as e:  # noqa: BLE001
+        display_message("ERROR", "Failed to compile revision folder.", f"{e}")
+
+        return
+
+# JPEG files not required in PROJECT S; needed as intermediate step to compile PDF.
+def save_jpeg(rgb: Image.Image, dest_path: str, jpeg_name: str) -> str:
+    jpeg_path = parse_pathname(dest_path, jpeg_name, "jpg", "file")
+
+    try:
+        # Save JPEG to local directory.
+        rgb.save(jpeg_path, "JPEG", dpi=(jpeg_res, jpeg_res))
+
+        display_message("SUCCESS", "JPEG file saved to revision folder.")
+        display_path_desc(jpeg_path, "file")
+
+        return jpeg_path
+
+    except Exception as e:  # noqa: BLE001
+        display_message("ERROR", "Failed to save file.", f"{e}")
+
+        return ""
+
+def del_jpeg(dest_path: str) -> None:
+    """Delete the temporary JPEG folder and its contents using os."""
+    # Check if the directory exists before deleting.
+    if not os.path.exists(dest_path):
+        display_message("ERROR", "JPEG folder does not exist.")
+        return
+
+    try:
+        # Walk through the directory tree from bottom to top.
+        for root, dirs, files in os.walk(dest_path, topdown=False):
+            # Delete each file in the current directory.
+            for file in files:
+                file_path = os.path.join(root, file)
+                os.remove(file_path)
+
+            # Delete each subdirectory in the current directory.
+            for dir_name in dirs:
+                dir_path = os.path.join(root, dir_name)
+                os.rmdir(dir_path)
+
+        # Remove the root directory itself after it is empty.
+        os.rmdir(dest_path)
+
+        display_message("SUCCESS", "JPEG folder and files deleted from revision folder.")
+
+    except Exception as e:  # noqa: BLE001
+        # Handle deletion errors gracefully.
+        display_message("ERROR", "Failed to delete JPEG folder.", f"{e}")
+
+
+def compile_pdf_file(image_paths: list, pdf_path: str) -> None:
+    def img_generator(image_paths, image_mode):
+        for path in image_paths:
+            with Image.open(path) as img:
+                yield img.convert(image_mode)
+
+    try:
+        # Open the first image as the anchor.
+        with Image.open(image_paths[0]) as first_img:
+            img_mode = "CMYK" if first_img.mode == "CMYK" else "RGB"
+
+            base_img = first_img.convert(img_mode)
+
+            # The 'append_images' parameter accepts the generator
+            base_img.save(
+                pdf_path,
+                "PDF",
+                resolution=jpeg_res,
+                save_all=True,
+                append_images=img_generator(image_paths[1:], img_mode),
+                optimize=True,
+                quality=50,
+            )
+
+        display_message("SUCCESS", "Revision PDF file created.")
+        display_path_desc(pdf_path, "file")
+
+    except Exception as e:  # noqa: BLE001
+        display_message("ERROR", "Failed to compile revision PDF file.", f"{e}")
+
+
+def gen_revision_pathnames(parent_dir: str, basename: str) -> tuple[str, ...]:
+    psd_path = ""
+    jpeg_path = ""
+    pdf_path = ""
+    ch_num, is_main_ch = clean_number(basename.split("_")[-1].strip())
+    current_num_rev_dir = count_rev_dirs(parent_dir, is_main_ch)
+
+    display_message(
+        "INFO",
+        f"Creating pathnames for chapter {ch_num} (rev. {current_num_rev_dir}) ...",
+    )
+
+    try:
+        current_rev_dir = f"{compile_dir_base}{current_num_rev_dir}"
+
+        psd_path = parse_pathname(parent_dir, current_rev_dir, "PSD", "folder")
+        jpeg_path = parse_pathname(parent_dir, current_rev_dir, "JPEG", "folder")
+        pdf_path = parse_pathname(
+            os.path.join(parent_dir, current_rev_dir),
+            # ch_num if ch_num.startswith("EX") else f"CH{ch_num}",
+            basename,
+            "pdf",
+            "file",
+        )
+
+        for path in [psd_path, jpeg_path, pdf_path]:
+            display_path_desc(path, "file" if path == pdf_path else "folder")
+
+        display_message("SUCCESS", "Path names created.  Pending actual creation.")
+
+    except Exception as e:  # noqa: BLE001
+        display_message("ERROR", "Failed to generated revision directory.", f"{e}")
+
+    return psd_path, jpeg_path, pdf_path
+
+
+def count_rev_dirs(directory: str, is_main: bool) -> str:
+    rev_num = ""
+
+    # List folders that starts with {compile_dir_base}.
+    rev_dirs = [d for d in os.listdir(directory) if d.startswith(compile_dir_base)]
+
+    # Return revision number based on filtered list for revisions either for main or sub chapters.
+    if is_main:
+        rev_dirs = [d for d in rev_dirs if "." not in d]
+        rev_num = str(len(rev_dirs) + 1)
+    else:
+        rev_dirs = [d for d in rev_dirs if "." in d]
+        rev_num = f"{len(rev_dirs) + 1}.5"
+
+    return rev_num
+
+
+def filter_files(source_path: str) -> list:
+    """
+    Filter PSD files only for compilation.
+    :param folder: The parent folder of the PSD files
+    :return filtered_files: The list of filtered PSD files to be compiled
+    """
+    display_message("INFO", "Filtering files ...")
+    display_path_desc(source_path, "folder")
+
+    source_files = os.listdir(source_path)
+
+    try:
+        filtered_files = []
+
+        for f in source_files:
+            _, extname = os.path.splitext(f)
+
+            if extname.lower() == ".psd":
+                filtered_files.append(f)
+                print(f"\n<=>  {f} -> INCLUDE")
+            else:
+                print(f"\n<=>  {f} -> EXCLUDE")
+
+        display_message(
+            "SUCCESS",
+            f"Total of {len(filtered_files)} out of {len(source_files)} files found.",
+        )
+
+        return filtered_files
+
+    except Exception as e:  # noqa: BLE001
+        display_message("ERROR", f"Failed to filter files in {source_path}.", f"{e}")
+
+        return []  # Return empty list.
+
+def sort_by_ordinal_num(dest_path: str) -> int:
+    """Extract the numeric value after the last space for sorting."""
+    # Isolate the filename from the directory path.
+    filename = os.path.basename(dest_path)
+
+    try:
+        # Check if a space exists in the filename.
+        if " " in filename:
+            # Split by the last space to isolate the trailing part (e.g., '0001.jpg').
+            trailing_part = filename.rsplit(" ", 1)[1]
+
+            # Remove the file extension to leave only the number string.
+            number_str, _ = os.path.splitext(trailing_part)
+
+            # Convert the number string to an integer.
+            return int(number_str)
+
+        return 0  # Fallback value if no valid trailing number is found.
+
+    except Exception as e:  # noqa: BLE001
+        display_message("ERROR", "Failed to get sorting key from PSD filename.", f"{e}")
+        return 0  # Fallback value if no valid trailing number is found.
+
+if __name__ == "__main__":
+    welcome_sequence([mod_name, f"ver {mod_ver} {date}", email])
+
+    print(input("\n>>> Press enter to continue ..."))
+
+    confirm_exit = False
+
+    while not confirm_exit:
+        compile_revision()
+        confirm_exit = continue_sequence()
