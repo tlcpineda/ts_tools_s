@@ -1,0 +1,137 @@
+PROJECT SOLE WORKFLOW
+
+1.  Create/Update SOLE projects_log.json.
+	- keys : 
+		- created = UTC datetime :: YYYY-mm-ddTHH:MM:ss.ssssss+00:00
+		- title_code = title code :: #_
+		- jp_title = title in Japanese :: A_
+		- proj_code = title_code + "." + jp_title :: #_.A_
+
+	- Create project folder; 
+		named : proj_code :: #_.A_
+
+2.  Create Box folders for the current term.
+	
+	ch_0 = first chapter of title for the current term :: #_
+	ch_1 = last chapter of title for the current term :: #_
+		optional in the case of singe-chapter terms
+	term_folder = proj_code + " " + ch_0 {+ "_" + ch_1} ::  #_.A_ #_-#_
+	ch_code_en =  chapter code for English files :: #(10)_en_#(4)
+		(padded title code; 10 chars 
+			+ "_en_" 
+			+ padded chapter number; 4 chars) 
+		eg. 0000233680_en_0004
+	ch_code_jp = chapter codes for Japanese files :: #(10)_jp_#(4)
+		(padded title code; 10 chars
+			+ "_jp_" 
+			+ padded chapter number; 4 chars) 
+		eg. 0000233680_jp_0004
+
+2.1. Proofreading folder
+	Box folder tree :
+
+	Project SoleTLTS 
+	+ Term##_
+	  + 06 Proofreading
+	    + term_folder
+	      + PDF files
+	
+	PDF filename : ch_code_en
+
+2.2. Typesetting folder; PSD files, except thumbnails (by others)
+	Box folder tree :
+
+	Project SoleTLTS 
+	+ Term##_
+	  + 03 Typeset PSD
+	    + term_folder
+	      + chapter folder
+	        + PSD files
+
+	chapter folder : ch_code_en
+	PSD file : name of file; padded page number; 4 chars :: #(4) 
+
+3.  Download reference files.
+	Box folder tree :
+
+	Project SoleTLTS
+	+ Term##_
+	  + 01_日本語JPEG (Japanese JPEG)
+	    + term_folder
+	      + ch_code_jp	
+	
+	Since it's possible that multiple typesetters work on a single chapter, assigned to different non-overlapping chapters, chapter files to be downloaded is limited to personal assignment.
+
+4.  Prepare files
+
+	term = current term :: ##_
+	jpeg_ref_jp = folder containing reference Japanese JPEG files by chapter; as downloaded from Box
+		term + " JPEG" :: ##_ JPEG
+	work_en = folder containing working PSD files; by term by chapter
+		"T" + term + " - " + ch_code_en
+	compile_en = folder containing set of PSD files, and PDF file of the set of PSD files for the current revision number
+		"COMPILED " + rev_num :: COMPILED #_
+	file_num = page number of file in the set; starts at "0001.psd" for cover page :: #(4)  padded 4 chars
+
+	Local folder tree
+	
+	2.1 PROJECTS - SOLE
+	+ proj_code
+	  + jpeg_ref_jp
+	  | + ch_code_jp
+	  | | + #(?)A(?).jpg
+	  | | + ...
+	  | | + ...
+	  | + ...
+	  | + ...
+	  + work_en
+	    + compile_en
+	    | + "PSD"
+	    | | + 0001.psd
+	    | | + 0002.psd
+	    | | + ...
+	    | | + ...
+	    | + ch_code_en.pdf
+	    + ch_code_en
+	      + 0001.psd
+	      + 0002.psd
+	      + ...
+	      + ...
+
+4.1. Create local working folders :
+	- JPEG reference folder: .../proj_code/jpeg_ref_jp
+	- Working folder : .../proj_code/work_en/ch_code_en
+
+4.2. Summarise file statistics by chapter :
+	- chapter > number of files > [dimensions x dpi  (number of files)] max -> min
+	- Option to show detailed statistics afterwards (to identify outlier files with respect to dimensions) before returning to main menu; grouped by dimensions x dpi by chapter
+	- ???  Adjust dimensions of outlier files ???
+
+4.3. Transfer downloaded Japanese JPEG to JPEG reference folder
+
+4.4. (Photoshop) Initialise JPEG files to become layered PSD files; saved to Working folder; rename files (4-char sequential padded numbering) :: #(4).psd 
+
+5. Scrape translation document (possibly same method as in Project LIT).
+
+6. (Photoshop) Transfer translation array to PSD files.
+
+7. (Photoshop - manual operation) Clean and typeset PSD files.
+
+8. Compile edited working files
+
+8.1. Create revision folder : compile_en, with subfolder "PSD".  Copy working folder PSD files to "PSD", and create ch_code_en.pdf file.
+
+9. Address Client correction requests.
+
+9.1. Download client correction file; usually a *.pptx.
+	Box folder tree :
+
+	Project SoleTLTS
+	+ Term##_
+	  + 07 Client Correction
+	    + Batch folder ("First Batch", "Second Batch", "3rd Batch", ...)
+	      + PPT file (unstable filenaming; best to match just the title_code)
+
+9.2. (Photoshop - manual operation) Edit files, and as in Item 8 create revision folder
+
+9.3 Upload revised (upload where ?)
