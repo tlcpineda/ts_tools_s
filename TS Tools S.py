@@ -1,0 +1,150 @@
+"""
+A compilation of modules to assist in local processes during typesetting,
+and some Box API operations, for Project S.
+"""
+
+from lib import display_message, hor_bar, welcome_sequence
+
+# from mod_01A import create_pre_csv
+# from mod_01B import finalise_csv
+from mod_03 import compile_revision
+
+# from mod_00 import pre_lang, prepare_files
+# from mod_04 import (
+#     copy_ts_files,
+#     create_term_tree,
+#     fetch_client_cr,
+#     fetch_data_files,
+#     fetch_tl,
+#     move_pdf,
+#     prefix_lang_code,
+#     revert_box_filenames,
+# )
+
+# App variables
+app_name = "Typesetting Tools S"
+app_ver = "1.00.00"
+date = "26 Oct 2026"
+email = "tlcpineda.projects@gmail.com"
+options = [
+    # {
+    #     "menu": "[P]repare reference files",
+    #     "shortkey": "P",
+    #     "func": prepare_files,
+    # },
+    # {
+    #     "menu": "Prefix [L]anguage code",
+    #     "shortkey": "L",
+    #     "func": pre_lang,
+    # },
+
+    # {
+    #     "menu": "[S]crape translations",
+    #     "shortkey": "S",
+    #     "func": create_pre_csv,
+    # },
+    # {
+    #     "menu": "[F]inalise translations CSV",
+    #     "shortkey": "F",
+    #     "func": finalise_csv,
+    # },
+
+    {
+        "menu": "Compile [R]evision files",
+        "shortkey": "R",
+        "func": compile_revision,
+    },
+    # {
+    #     "menu": "Rename files in [B]ox",
+    #     "shortkey": "B",
+    #     "func": prefix_lang_code,
+    # },
+    # {
+    #     "menu": "Revert B[O]x filenames",
+    #     "shortkey": "O",
+    #     "func": revert_box_filenames,
+    # },
+    # {
+    #     "menu": "[M]ove PDF files to term folder",
+    #     "shortkey": "M",
+    #     "func": move_pdf,
+    # },
+    # {
+    #     "menu": "[C]reate typesetting term folder",
+    #     "shortkey": "C",
+    #     "func": create_term_tree,
+    # },
+    # {
+    #     "menu": "F[E]tch revision file/tab",
+    #     "shortkey": "E",
+    #     "func": fetch_client_cr,
+    # },
+    # {
+    #     "menu": "Fetc[H] translation file/s",
+    #     "shortkey": "H",
+    #     "func": fetch_tl,
+    # },
+    # {
+    #     "menu": "[D]ownload source files",
+    #     "shortkey": "D",
+    #     "func": fetch_data_files,
+    # },
+    # {
+    #     "menu": "Copy [T]ypesetting files to Revisions folder",
+    #     "shortkey": "T",
+    #     "func": copy_ts_files,
+    # },
+    {"menu": "E[X]it and close window", "shortkey": "X"},
+]
+
+
+def display_menu():
+    print()
+
+    hor_bar(60, "MENU")
+
+    for option in options:
+        print(f"{' ':5}{option['menu']}")
+
+    hor_bar(60)
+
+    print("\n>>> Select an option ...")
+
+
+if __name__ == "__main__":
+    welcome_sequence(
+        [
+            app_name,
+            f"ver {app_ver} {date}",
+            email,
+        ]
+    )
+
+    confirm_exit = False
+
+    while not confirm_exit:
+        display_menu()
+        user_input = None
+
+        while not user_input:
+            resp = input(">>> ").upper().strip()
+
+            if resp in [option["shortkey"] for option in options]:
+                user_input = resp
+            else:
+                display_message("WARN", "Invalid option.")
+
+        if user_input == "X":
+            hor_bar(60, "CLOSING DOWN ...")
+            confirm_exit = True
+        else:
+            print()
+
+            selected_option = [
+                option for option in options if option["shortkey"] == user_input
+            ][0]
+            func_selected = selected_option["func"]  # requires input_path
+
+            hor_bar(60, f"RUNNING : {func_selected.__name__}()")
+            func_selected()
+            hor_bar(60, f"COMPLETE : {func_selected.__name__}()")
