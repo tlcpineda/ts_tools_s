@@ -27,6 +27,17 @@ class LogManager:
         self.log.append(entry)
         return self.save()
 
+    def update_field(self, index: int, key: str, value: str | int | dict):
+        """
+        Update any field for a specified project, indetified by log index.
+        """
+        if key == "dim":    # dim takes a list of dict.
+            self.log[index]["dim"].append(value)
+        else:
+            self.log[index][key] = value
+
+        return self.save()
+
     def load(self):
         """Read the JSON log file; returns a list."""
         if os.path.exists(self.log_path):
@@ -56,7 +67,7 @@ class LogManager:
 
             # Replace the official file, by the temp file.
             os.replace(temp_path, self.log_path)
-            display_message("INFO", f'New entry added to "{base}".')
+            display_message("INFO", "Project cache successfully updated.")
             return True
         except Exception as e:  # noqa: BLE001
             if os.path.exists(temp_path):
@@ -325,7 +336,10 @@ def copy_file(source_dir: str, dest_dir: str, filename: str, extname: str) -> No
 
 def parse_pathname(parent_dir: str, basename: str, extname: str, pathtype: str) -> str:
     """
-    :param extname: Should not contain "." (dot) .
+    :param basename: filename, where pathtype=="file"; subfolder name, where pathtype=="folder"
+    :param extname: file extension name; should not contain "." (dot), where pathtype=="file";
+        subfolder name, where pathtype=="folder"
+    :param pathtype: Either ["file", "folder"]
     """
     if pathtype == "file":
         dest_path = os.path.join(parent_dir, f"{basename}.{extname}")
@@ -336,15 +350,13 @@ def parse_pathname(parent_dir: str, basename: str, extname: str, pathtype: str) 
 
 
 def show_proj_in_cache(cache: list) -> None:
-    heads = ["Work ID", "LIT ID", "Title (EN)", "Title (JP)"]
-    col_widths = [7, 6, 30, 30]
+    heads = ["SOLE ID", "Title (JP)"]
+    col_widths = [10, 30]
 
     table_title = "PROJECT CACHE DATA"
     table = [
         [
-            row["work_id"],
-            row["lit_id"],
-            row["title_en"],
+            row["sole_id"],
             row["title_jp"],
         ]
         for row in cache
@@ -399,11 +411,8 @@ def parse_chapters(ch_in: str) -> list[str] | None:
     # Check if any element is a range; then list range elements.
     ch_list = flat([ch if "-" not in ch else list_strip(ch, "-") for ch in ch_list])
 
-    # Prefix "CH" on chapter numbers, except for extra chapters (startswith "EX").
-    ch_list = [
-        ch.upper() if ch.upper().startswith("EX") else f"CH{clean_number(ch)[0]}"
-        for ch in ch_list
-    ]
+    # Format chapter numbers are four-character strings.
+    ch_list = [f"{int(ch):04}" for ch in ch_list]
 
     # Return list of unique entries.
     return sorted(set(ch_list))
@@ -411,70 +420,117 @@ def parse_chapters(ch_in: str) -> list[str] | None:
 
 def get_cached_proj_details(cache: LogManager) -> dict[str, str]:
     """
-    :return: keys : "created", "work_id", "lit_id", "title_jp", "title_en"
+    :return: keys : "created", "sole_id", "title_jp"
     """
     proj_det = {}
-    work_id = ""
+    sole_id = ""
     resp = False
     projects = cache.load()
-    work_ids = [proj["work_id"] for proj in projects]
+    sole_ids = [proj["sole_id"] for proj in projects]
 
     show_proj_in_cache(projects)
 
     while not resp:
-        work_id = input(
-            '\n>>> Enter "Work ID" to select project (or "0" for a new project) : '
+        sole_id = input(
+            '\n>>> Enter "SOLE ID" to select project (or "0" for a new project) : '
         ).strip()
 
-        if work_id in work_ids or work_id == "0":
+        if sole_id in sole_ids or sole_id == "0":
             resp = True
         else:
-            display_message("WARN", f'"{work_id}" is not a valid input.')
+            display_message("WARN", f'"{sole_id}" is not a valid input.')
 
-    if int(work_id):
-        # Extract project details based on work_id (ultimately from index of the project on the cache).
-        proj_index = work_ids.index(work_id)
+    if int(sole_id):
+        # Extract project details based on sole_id (ultimately from index of the project on the cache).
+        proj_index = sole_ids.index(sole_id)
         proj_det = cache.__getitem__(proj_index)
         display_message("INFO", "Project selected from cache.")
 
-    else:  # work_id == 0; input new project details.
+    else:  # sole_id == 0; input new project details.
         proj_det = get_proj_details()  # Get details as user input.
-        work_id = proj_det["work_id"]
+        sole_id = proj_det["sole_id"]
         cache.add(proj_det)
         display_message("INFO", "New project details added to cache.")
 
-    print(
-        f"<=>  #{work_id} LIT{int(proj_det['lit_id']):03} {proj_det['title_jp']} ( {proj_det['title_en']} )"
-    )
+    print(f"<=>  #{sole_id} {proj_det['title_jp']}")
 
     return proj_det
 
 
+def update_cached_proj_field(cache: LogManager, field: str, field_value: str | int | dict[str, int]):
+    """
+    :param : field (str) sole_id (int | str), title_jp (str), dim (dict)
+    """
+    proj_det = {}
+    sole_id = ""
+    resp = False
+    projects = cache.load()
+    sole_ids = [proj["sole_id"] for proj in projects]
+
+    show_proj_in_cache(projects)
+
+    while not resp:
+        sole_id = input(
+            '\n>>> Enter "SOLE ID" to update field values : '
+        ).strip()
+
+        if sole_id in sole_ids:
+            resp = True
+        else:
+            display_message("WARN", f'"{sole_id}" is not a valid input.')
+
+    # Extract project details based on sole_id (ultimately from index of the project on the cache).
+    proj_index = sole_ids.index(sole_id)
+    proj_det = cache.__getitem__(proj_index)
+    display_message("INFO", "Project selected from cache.")
+
+    print(f"<=>  #{sole_id} {proj_det['title_jp']}")
+
+    pre_table_title = f"#{sole_id} {proj_det["title_jp"]}"
+    match field:
+        case "dim":
+            show_table(
+                f"{pre_table_title} CACHED DIMENSIONS",
+                [10, 15, 15, 15],
+                ["Term", "Width (px)", "Height (px)", "Res (dpi)"],
+                [[str(dim["term"]), str(dim["w"]), str(dim["h"]), str(dim["r"])] for dim in proj_det["dim"]]
+            )
+        case _:
+            show_table(
+                f"{pre_table_title} CACHED {field.upper()} VALUE",
+                [10, 25],
+                ["Field Name", "Current Value"],
+                [field, proj_det[field]],
+            )
+
+    update_resp = input("Update field ([Y]es/[N]o) ?")
+
+    if update_resp.upper() == "Y" or update_resp == "":
+        cache.update_field(proj_index, field, field_value)
+    else:
+        display_message("WARN", "Dimensions not updated.")
+
+
 def get_term_details(
     cache: LogManager,
-) -> tuple[str, str, str, str, str, list[str]]:
+) -> tuple[str, str, str, list[str]]:
     """
     Get details for the term from user input.
     :param cache:
-    :return work_id, proj_name, title_en, vol_num, term, chapters:
+    :return sole_id, proj_name, term, chapters:
     """
-    vol_num = ""
     term = ""
     chapters = []
 
     proj_det = get_cached_proj_details(cache)
-    work_id = proj_det["work_id"]
-    title_en = proj_det["title_en"]
-    proj_name = f"LIT{int(proj_det['lit_id']):03} {proj_det['title_jp']}"
-
-    vol_num = input("\n>>> Enter volume number : ").strip()
-    vol_num, _ = clean_number(vol_num)
+    sole_id = proj_det["sole_id"]
+    proj_name = f"{proj_det['sole_id']}.{proj_det['title_jp']}"
 
     while not term:
         term_num = input("\n>>> Enter term number (0#) : ").strip()
 
         if term_num:
-            term = f"Term {int(term_num):02}"
+            term = f"{int(term_num):02}"
         else:
             display_message("WARN", "Term number cannot be blank.")
 
@@ -499,34 +555,30 @@ def get_term_details(
         ],
         ["", "Parameters", "Values"],
         [
-            ["1", "Work ID", work_id],
+            ["1", "SOLE ID", sole_id],
             ["2", "Project Name", proj_name],
-            ["3", "Title (EN)", title_en],
-            ["4", "Volume", vol_num],
-            ["5", "Term", term],
-            ["6", "Chapter List", f"{chapters}"],
+            ["3", "Term", term],
+            ["4", "Chapter List", f"{chapters}"],
         ],
     )
     print()
 
-    return work_id, proj_name, title_en, vol_num, term, chapters
+    return sole_id, proj_name, term, chapters
 
 
 def get_proj_details():
     created = datetime.now(UTC).isoformat()
     proj_det = {
         "created": created,
-        "work_id": "",
-        "lit_id": "",
+        "sole_id": "",
         "title_jp": "",
-        "title_en": "",
-        "source_url_psd": "",
-        "source_url_jpeg": "",
+        "dim": []
     }
 
     print("\n>>> Add new project details ... ")
 
-    keys = proj_det.keys()
+    # keys = proj_det.keys()
+    keys = [key for key in proj_det if key != "dim"]
     max_len_key = max(len(key) for key in keys)
 
     for key in keys:
@@ -561,10 +613,12 @@ def show_table(main_head: str, col_width: list, heads: list, table: list) -> Non
             if index == 0:
                 line += f" {item:^{col_len}} {terminal_bar}"
             else:
-                if jndex == 0 or jndex == 1:
-                    line += f" {item:>{col_len}} {terminal_bar}"
-                else:
+                if jndex in [0, 1] and jndex != len(row) - 1:
+                    line += f" {item:^{col_len}} {terminal_bar}"
+                elif len(row) in [2, 3]:
                     line += f" {item if len(item) <= col_len else f'{item[: col_len - 3]}...':<{col_len}} {terminal_bar}"
+                else:
+                    line += f" {item if len(item) <= col_len else f'{item[: col_len - 3]}...':>{col_len}} {terminal_bar}"
 
         print(line)
 

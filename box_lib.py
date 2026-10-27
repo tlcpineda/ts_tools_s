@@ -1,4 +1,4 @@
-import os
+import os  # noqa: I001
 
 from box_sdk_gen import (
     BoxClient,
@@ -6,11 +6,11 @@ from box_sdk_gen import (
     CreateFolderParent,
     CreateZipDownloadItemsTypeField,
     FileFull,
+    FileMini,
     FilesManager,
     FolderFull,
     FolderMini,
-    FoldersManager,
-    Item,  # pyright: ignore[reportAttributeAccessIssue]
+    FoldersManager
 )
 from box_sdk_gen.managers.zip_downloads import CreateZipDownloadItems
 from dotenv import load_dotenv
@@ -363,7 +363,7 @@ def ensure_box_folder_exists(
     target = None
 
     try:
-        target = find_box_entry_by_name(client, parent_url, "folder", folder_name)
+        target = find_box_entry_by_name(client, parent_url, "folder", folder_name, False)
 
         if not target:
             target = create_box_folder(client, parent_url, folder_name)
@@ -381,17 +381,19 @@ def ensure_box_folder_exists(
 
 
 def find_box_entry_by_name(
-    client: BoxClient, parent_url: str, entry_type: str, entry_name: str
-) -> Item | None:
+    client: BoxClient, parent_url: str, entry_type: str, entry_name: str, partial: bool
+) -> FolderMini | FolderFull | FileMini | FileFull | None:
     """
     :param parent_url: URL of the folder containing the item.
     :param entry_type: Either "folder" or "file".
     :param entry_name: Case-sensitive, including extension name for the case of "file" entries.
+    :param partial: Enable substring matching
     """
 
     def disp_msg(state: bool) -> None:
         disp_stat = "INFO" if state else "WARN"
-        disp_msg = f'{entry_type.title()} entry "{entry_name}" {"" if state else "not "}found in parent.'
+        match_type = "partial" if partial else "exact"
+        disp_msg = f'{entry_type.title()} entry ({match_type}) "{entry_name}" {"" if state else "not "}found in parent.'
 
         display_message(disp_stat, disp_msg)
 
@@ -400,7 +402,7 @@ def find_box_entry_by_name(
 
     display_message(
         "INFO",
-        f'Checking for {entry_type} "{entry_name}" in parent (ID : {parent_id}) ... ',
+        f'Checking for {entry_type} "{entry_name}"  in parent (ID : {parent_id}) ... ',
     )
     display_box_path(client, parent_url)
 
@@ -411,11 +413,21 @@ def find_box_entry_by_name(
         children = get_box_entries(client, parent_url)
 
         if children:
-            entry0 = [
-                child
-                for child in children
-                if (child.name == entry_name and child.type == entry_type)
-            ]
+            if partial:
+                # partial match
+                entry0 = [
+                    child
+                    for child in children
+                    if (child and isinstance(child.name, str) and entry_name in child.name and (child.type == entry_type))
+                ]
+            else:
+                # exact match
+                entry0 = [
+                    child
+                    for child in children
+                    if (child and child.name == entry_name and child.type == entry_type)
+                ]
+
             entry = entry0[0] if entry0 else None
 
         disp_msg(bool(entry))
@@ -431,7 +443,7 @@ def get_path_entries(entry: FolderFull | FileFull) -> list[FolderMini]:
     return path_collection.entries if path_collection else []
 
 
-def get_box_entries(client: BoxClient, folder_url: str) -> list[Item]:
+def get_box_entries(client: BoxClient, folder_url: str) -> list[FolderMini | FolderFull | FileMini | FileFull | None]:
     _, folder_id = extract_entry_meta(folder_url)
 
     try:
@@ -450,7 +462,7 @@ def get_box_entries(client: BoxClient, folder_url: str) -> list[Item]:
             f"{disp_msg_i} folder (ID : {folder_id}) .",
         )
 
-        return box_entries or []
+        return box_entries or []  # pyright: ignore[reportReturnType]
 
     except Exception as e:  # noqa: BLE001
         display_message(
