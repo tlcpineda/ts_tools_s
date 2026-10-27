@@ -89,7 +89,11 @@ def fetch_data_files() -> None:
             "file",
         )
 
-        dl_box_entry(client, sources, zip_dest_path)
+        if sources:
+            dl_box_entry(client, sources, zip_dest_path)
+        else:
+            # In case of inconsistent folder structure.
+            display_message("ERROR", f"Typesetting data not found.  Verify Box folder : {parent}")
 
     except Exception as e:  # noqa: BLE001
         display_message("ERROR", "Failed to fetch typesetting data from Box.", f"{e}")
