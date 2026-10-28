@@ -10,6 +10,7 @@ from lib import (
     display_path_desc,
     ensure_path_exists,
     expand_path,
+    filter_files,
     get_term_details,
     hor_bar,
     identify_path,
@@ -168,76 +169,83 @@ def update_dims() -> None:
     update_cached_proj_field(cache, proj_ind, "dim", update_values)
 
 
-# def prepare_files() -> None:
-#     ref_jpg_ch_folders = []
-#     ref_psd_ch_folders = []
-#     w_psd_ch_folders = []
-#
-#     try:
-#         cache = load_proj_cache(PROJ_CACHE)
-#         sole_id, proj_name, term, chapters = get_term_details(cache)
-#
-#         term_ref_folder = parse_pathname(PARENT_LOCAL, proj_name, f"{term} JPEG", "folder")
+def prepare_files() -> None:
+    try:
+        cache = load_proj_cache(PROJ_CACHE)
+        sole_id, proj_name, term, chapters = get_term_details(cache)
+        num_chapters = len(chapters)
+        term_ref_folder = parse_pathname(PARENT_LOCAL, proj_name, f"{term} JPEG", "folder")
+
+        for ind, ch in enumerate(chapters):
+            term_jpg_ref_folder_name = f"{int(sole_id):010}_{lang_iso_2_ref}_{ch}"
+            term_psd_ref_folder = parse_pathname(term_ref_folder, term_jpg_ref_folder_name, "PSD", "folder")
+
+            # Case when PSD folder within reference JPEG folder is absent; possibly JPEG files not yet initialised.
+            if not os.path.exists(term_psd_ref_folder):
+                display_message("WARN", f"Folder .../{term_jpg_ref_folder_name}/PSD does not exists.")
+                continue
+
+            psd_files = filter_files(term_psd_ref_folder)
+            psd_files.sort(key=is_copyright)
+
+            hor_bar(100, f"Processing folder {ind + 1} / {num_chapters} ... ")
+            display_path_desc(term_psd_ref_folder, "folder")
+
+            chapter_name = f"{int(sole_id):010}_{lang_iso_2}_{ch}"
+            term_chapter_work_folder_name = f"{proj_name}/T{term} - {chapter_name}"
+            term_psd_work_folder_name = f"{chapter_name}"
+
+            term_psd_work_folder = parse_pathname(
+                PARENT_LOCAL, term_chapter_work_folder_name, term_psd_work_folder_name, "folder"
+            )
+
+            dest_exists = ensure_path_exists(term_psd_work_folder, "folder")
+
+            # Fringe case when destination folder is not present, nor successful created from previous line.
+            if not dest_exists:
+                display_message("WARN", f"Target folder ( .../{term_psd_work_folder_name} ) not found.")
+                continue
+
+            for ind, file in enumerate(psd_files):
+                base, ext = os.path.splitext(file)
+                ext = ext[1:]
+
+                # Copy reference PSD file to working folder.
+                copy_file(
+                    term_psd_ref_folder,
+                    term_psd_work_folder,
+                    base,
+                    ext
+                )
+
+                # Rename files in working folder; append 4-char ordinal numbering after space.
+                rename_path(
+                    parse_pathname(term_psd_work_folder, base, ext, "file"),
+                    parse_pathname(term_psd_work_folder, f"{base} {ind:04}", ext, "file"),
+                    "file"
+                )
+
+            print()
+
+    except Exception as e:  # noqa: BLE001
+        display_message(
+            "ERROR", "Failed to sort reference files to working directories.", f"{e}"
+        )
 
 
-#         # Summarising contents of recently created folders.
-#         summary_table = []
-#
-#         for index, folder in enumerate(
-#             ref_psd_ch_folders + ref_jpg_ch_folders + w_psd_ch_folders
-#         ):
-#             summary_table.append(
-#                 [
-#                     index + 1,
-#                     f".../{'/'.join((folder.split('/' if '/' in folder else os.sep))[-2:])}",
-#                     f"{len(os.listdir(folder)):6}",
-#                     "※"
-#                     if index > len(ref_psd_ch_folders + ref_jpg_ch_folders) - 1
-#                     else "",
-#                 ]
-#             )
-#
-#         show_table(
-#             f"New Folders in .../2 PROJECTS/{proj_name}",
-#             [4, 50, 10, 1],
-#             ["Item", "Directory", "Contents", ""],
-#             summary_table,
-#         )
-#
-#         print("※ Files require adjustments in resolution and dimensions.")
+def is_copyright(dest_path: str) -> int:
+    """
+    Identify if filename has "copyright" in its name. Push file to last of sorting order.
+    """
+    filename = os.path.basename(dest_path)
 
-#     except Exception as e:
-#         display_message(
-#             "ERROR", "Failed to sort reference files to working directories.", f"{e}"
-#         )
+    try:
+        # Check if "copyright" is in filename.
+        return 1 if "copyright" in filename.lower() else 0
 
-
-def verify_contents_ref_folder(
-    fnames: list[str], files_desc: str
-) -> tuple[str, int | str]:
-    print(f"\n>>> {files_desc} : ")
-
-    ref_folder = str(identify_path("folder"))
-
-    if not ref_folder:
-        print("\n>>> No folder selected.")
-        return "", "NA"
-
-    _, base = display_path_desc(ref_folder, "folder")
-    display_message("INFO", f"Verifying contents of folder '{base}' ...")
-
-    ref_contents = os.listdir(ref_folder)
-    missing_files = [name for name in fnames if name not in ref_contents]
-    num_missing_files = 0
-
-    if missing_files:
-        num_missing_files = len(missing_files)
-        display_message("WARN", f"Missing files ({num_missing_files}) from '{base}' :")
-        print(f"<=>  {'\n<=>  '.join(missing_files)}\n")
-    else:
-        display_message("INFO", f"All required files in '{base}'.")
-
-    return ref_folder, num_missing_files
+    except Exception as e:  # noqa: BLE001
+        display_message("ERROR", "Failed to get sorting key from PSD filename.", f"{e}")
+        return 0    # Fallback value.
 
 
 # def gen_pagination() -> tuple[list[list[str]], str, str, str]:
@@ -317,7 +325,7 @@ if __name__ == "__main__":
             print(
                 "\n>>> Select an option :"
                 "\n>>>  [A]nalyse reference files ?"
-                "\n>>>  [P]repare reference files ?"
+                "\n>>>  [P]repare working files ?"
                 "\n>>>  [U]pdate project cache dimensions ?"
                 "\n>>>  E[X]it and close this window ?"
             )
@@ -334,8 +342,7 @@ if __name__ == "__main__":
             confirm_exit = False
 
             if resp == "P":
-                # prepare_files()
-                pass
+                prepare_files()
             elif resp == "A":
                 analyse_ref_files()
             elif resp == "U":
