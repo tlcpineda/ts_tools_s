@@ -17,7 +17,9 @@ from lib import (
     load_proj_cache,
     parse_pathname,
     rename_path,
+    select_cached_proj_for_update,
     show_proj_in_cache,
+    show_proj_param,
     show_table,
     update_cached_proj_field,
     welcome_sequence,
@@ -143,16 +145,27 @@ def get_mode(counts: dict) -> list[tuple[int, int]]:
     return [(val, freq) for val, freq in counts.items() if freq == max_freq]
 
 
-def update_dims() :
+def update_dims() -> None:
     cache = load_proj_cache(PROJ_CACHE)
 
-    display_message("INFO", "Enter new dimension, and resolution values, for the term.")
+    proj_ind, proj_det = select_cached_proj_for_update(cache)
+
+    show_proj_param(cache, proj_det, "dim")
+
+    print("\n>>> Append new values ?")
+    update_resp = input("\n>>>  [Y]es/[N]o : ").strip()
+
+    # Terminate process; case where values are already in cache log.
+    if update_resp.upper() not in ["Y", ""]:
+        return
+
+    print("\n>>> Enter new dimension, and resolution values, for the term : ")
     update_values = {"term": 0, "w": 0, "h": 0, "r": 0}
 
     for key in update_values:
-        update_values[key] = int(input(f"Enter {key} : "))
+        update_values[key] = int(input(f">>>  New {key} : "))
 
-    update_cached_proj_field(cache, "dim", update_values)
+    update_cached_proj_field(cache, proj_ind, "dim", update_values)
 
 
 # def prepare_files() -> None:

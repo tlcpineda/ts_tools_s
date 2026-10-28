@@ -457,27 +457,28 @@ def get_cached_proj_details(cache: LogManager) -> dict[str, str]:
     return proj_det
 
 
-def update_cached_proj_field(cache: LogManager, field: str, field_value: str | int | dict[str, int]):
+def select_cached_proj_for_update(cache: LogManager) -> tuple[int, dict]:
     """
-    :param : field (str) sole_id (int | str), title_jp (str), dim (dict)
+    :return : proj_det, cached log of selected project for editing:
     """
-    proj_det = {}
+    proj_index = -1
     sole_id = ""
-    resp = False
     projects = cache.load()
     sole_ids = [proj["sole_id"] for proj in projects]
 
     show_proj_in_cache(projects)
 
+    resp = False
+
     while not resp:
         sole_id = input(
-            '\n>>> Enter "SOLE ID" to update field values : '
+            "\n>>> Enter SOLE ID to update field : "
         ).strip()
 
         if sole_id in sole_ids:
             resp = True
         else:
-            display_message("WARN", f'"{sole_id}" is not a valid input.')
+            display_message("WARN", f'" {sole_id} " is not a valid input.')
 
     # Extract project details based on sole_id (ultimately from index of the project on the cache).
     proj_index = sole_ids.index(sole_id)
@@ -486,23 +487,36 @@ def update_cached_proj_field(cache: LogManager, field: str, field_value: str | i
 
     print(f"<=>  #{sole_id} {proj_det['title_jp']}")
 
-    pre_table_title = f"#{sole_id} {proj_det["title_jp"]}"
-    match field:
-        case "dim":
-            show_table(
-                f"{pre_table_title} CACHED DIMENSIONS",
-                [10, 15, 15, 15],
-                ["Term", "Width (px)", "Height (px)", "Res (dpi)"],
-                [[str(dim["term"]), str(dim["w"]), str(dim["h"]), str(dim["r"])] for dim in proj_det["dim"]]
-            )
-        case _:
-            show_table(
-                f"{pre_table_title} CACHED {field.upper()} VALUE",
-                [10, 25],
-                ["Field Name", "Current Value"],
-                [field, proj_det[field]],
-            )
+    return proj_index, proj_det
 
+
+def show_proj_param(cache: LogManager, proj_det: dict, field: str) -> None:
+    pre_table_title = f"#{proj_det["sole_id"]}"
+    if field == "dim":
+        show_table(
+            f"{pre_table_title} CACHED DIMENSIONS",
+            [10, 15, 15, 15],
+            ["Term", "Width (px)", "Height (px)", "Res (dpi)"],
+            [[str(dim["term"]), str(dim["w"]), str(dim["h"]), str(dim["r"])] for dim in proj_det["dim"]]
+        )
+    else:
+        show_table(
+            f"{pre_table_title} CACHED {field.upper()} VALUE",
+            [10, 25],
+            ["Field Name", "Current Value"],
+            [field, proj_det[field]],
+        )
+
+
+def update_cached_proj_field(
+    cache: LogManager,
+    proj_index: int,
+    field: str,
+    field_value: str | int | dict[str, int]
+):
+    """
+    :param : field (str) sole_id (int | str), title_jp (str), dim (dict)
+    """
     update_resp = input("Update field ([Y]es/[N]o) ?")
 
     if update_resp.upper() == "Y" or update_resp == "":
