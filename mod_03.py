@@ -9,6 +9,7 @@ from lib import (
     display_message,
     display_path_desc,
     ensure_path_exists,
+    filter_files,
     hor_bar,
     identify_path,
     parse_pathname,
@@ -233,41 +234,6 @@ def count_rev_dirs(directory: str, is_main: bool) -> str:
 
     return rev_num
 
-
-def filter_files(source_path: str) -> list:
-    """
-    Filter PSD files only for compilation.
-    :param folder: The parent folder of the PSD files
-    :return filtered_files: The list of filtered PSD files to be compiled
-    """
-    display_message("INFO", "Filtering files ...")
-    display_path_desc(source_path, "folder")
-
-    source_files = os.listdir(source_path)
-
-    try:
-        filtered_files = []
-
-        for f in source_files:
-            _, extname = os.path.splitext(f)
-
-            if extname.lower() == ".psd":
-                filtered_files.append(f)
-                print(f"\n<=>  {f} -> INCLUDE")
-            else:
-                print(f"\n<=>  {f} -> EXCLUDE")
-
-        display_message(
-            "SUCCESS",
-            f"Total of {len(filtered_files)} out of {len(source_files)} files found.",
-        )
-
-        return filtered_files
-
-    except Exception as e:  # noqa: BLE001
-        display_message("ERROR", f"Failed to filter files in {source_path}.", f"{e}")
-
-        return []  # Return empty list.
 
 def sort_by_ordinal_num(dest_path: str) -> int:
     """Extract the numeric value after the last space for sorting."""

@@ -314,7 +314,7 @@ def expand_path(path_short: str) -> str:
 
 
 def copy_file(source_dir: str, dest_dir: str, filename: str, extname: str) -> None:
-    # Creates a copy of the file (Manual Binary Copy) to revision folder.
+    # Creates a copy of the file (Manual Binary Copy) to eg. revision folder.
     file_path_0 = parse_pathname(source_dir, filename, extname, "file")
     file_path_1 = parse_pathname(dest_dir, filename, extname, "file")
 
@@ -332,6 +332,42 @@ def copy_file(source_dir: str, dest_dir: str, filename: str, extname: str) -> No
 
     except Exception as e:  # noqa: BLE001
         display_message("ERROR", "Failed to copy file.", f"{e}")
+
+
+def filter_files(source_path: str) -> list:
+    """
+    Filter PSD files only for processing.
+    :param folder: The parent folder of the PSD files
+    :return filtered_files: The list of filtered PSD files to be compiled
+    """
+    display_message("INFO", "Filtering files ...")
+    display_path_desc(source_path, "folder")
+
+    source_files = os.listdir(source_path)
+
+    try:
+        filtered_files = []
+
+        for f in source_files:
+            _, extname = os.path.splitext(f)
+
+            if extname.lower() == ".psd":
+                filtered_files.append(f)
+                print(f"\n<=>  {f} -> INCLUDE")
+            else:
+                print(f"\n<=>  {f} -> EXCLUDE")
+
+        display_message(
+            "SUCCESS",
+            f"Total of {len(filtered_files)} out of {len(source_files)} files found.",
+        )
+
+        return filtered_files
+
+    except Exception as e:  # noqa: BLE001
+        display_message("ERROR", f"Failed to filter files in {source_path}.", f"{e}")
+
+        return []  # Return empty list.
 
 
 def parse_pathname(parent_dir: str, basename: str, extname: str, pathtype: str) -> str:
