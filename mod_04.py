@@ -4,18 +4,13 @@ import time
 from dotenv import load_dotenv
 
 from box_lib import (
-    copy_box_entry,
     display_box_path,
     dl_box_entry,
     ensure_box_folder_exists,
-    extract_entry_meta,
-    fetch_entry,
     find_box_entry_by_name,
     get_box_entries,
     init_client,
-    move_box_entry,
     parse_box_url,
-    rename_box_entry,
 )
 from lib import (
     display_message,
@@ -269,6 +264,7 @@ def create_term_tree() -> None:
     except Exception as e:  # noqa: BLE001
         display_message("ERROR", "Failed to create term tree in Box.", f"{e}")
         return
+
 
 if __name__ == "__main__":
     welcome_sequence([mod_name, f"ver {mod_ver} {date}", email])

@@ -4,7 +4,6 @@ from dotenv import load_dotenv
 from PIL import Image
 
 from lib import (
-    clean_number,
     copy_file,
     display_message,
     display_path_desc,
@@ -13,18 +12,14 @@ from lib import (
     filter_files,
     get_term_details,
     hor_bar,
-    identify_path,
-    load_csv,
     load_proj_cache,
     parse_pathname,
     rename_path,
     select_cached_proj_for_update,
-    show_proj_in_cache,
     show_proj_param,
     show_table,
     update_cached_proj_field,
     welcome_sequence,
-    write_to_csv,
 )
 
 # Module variables
@@ -221,7 +216,7 @@ def prepare_files() -> None:
                 # Rename files in working folder; append 4-char ordinal numbering after space.
                 rename_path(
                     parse_pathname(term_psd_work_folder, base, ext, "file"),
-                    parse_pathname(term_psd_work_folder, f"{base} {ind:04}", ext, "file"),
+                    parse_pathname(term_psd_work_folder, f"{base} {(ind + 1):04}", ext, "file"),
                     "file"
                 )
 

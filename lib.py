@@ -553,7 +553,7 @@ def update_cached_proj_field(
     """
     :param : field (str) sole_id (int | str), title_jp (str), dim (dict)
     """
-    update_resp = input("Update field ([Y]es/[N]o) ?")
+    update_resp = input(">>> Update field ([Y]es/[N]o) ?")
 
     if update_resp.upper() == "Y" or update_resp == "":
         cache.update_field(proj_index, field, field_value)
