@@ -8,12 +8,12 @@ from mod_00 import analyse_ref_files, prepare_files, update_dims
 from mod_01A import create_pre_csv
 from mod_01B import finalise_csv
 from mod_03 import compile_revision
-from mod_04 import create_term_tree, fetch_data_files, fetch_tl
+from mod_04 import create_term_tree, fetch_cr, fetch_data_files, fetch_tl
 
 # App variables
 app_name = "Typesetting Tools S"
-app_ver = "1.00.00"
-date = "13 Nov 2026"
+app_ver = "2.00.00"
+date = "20 Nov 2026"
 email = "tlcpineda.projects@gmail.com"
 options = [
     {
@@ -62,6 +62,11 @@ options = [
         "menu": "(BOX) [D]ownload source files",
         "shortkey": "D",
         "func": fetch_data_files,
+    },
+    {
+        "menu": "(BOX) F[E]etch Client revision file",
+        "shortkey": "E",
+        "func": fetch_cr,
     },
     {"menu": "E[X]it and close window", "shortkey": "X"},
 ]
