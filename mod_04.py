@@ -272,7 +272,7 @@ def create_term_tree() -> None:
 def fetch_cr() -> None:
     try:
         cache = load_proj_cache(PROJ_CACHE)
-        sole_id, proj_name, term, chapters = get_term_details(cache)
+        _, proj_name, term, _ = get_term_details(cache)
 
         client = init_client()
 
