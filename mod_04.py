@@ -1,5 +1,6 @@
 import os
 import time
+from datetime import datetime
 
 from dotenv import load_dotenv
 
@@ -7,6 +8,7 @@ from box_lib import (
     display_box_path,
     dl_box_entry,
     ensure_box_folder_exists,
+    extract_entry_meta,
     find_box_entry_by_name,
     get_box_entries,
     init_client,
@@ -27,8 +29,8 @@ from lib import (
 
 # Module variables
 mod_name = "Box API Operations"
-mod_ver = "1"
-date = "27 Oct 2026"
+mod_ver = "2"
+date = "20 Nov 2026"
 email = "tlcpineda.projects@gmail.com"
 lang_iso_2 = "en"
 
@@ -41,6 +43,7 @@ PARENT_LOCAL = expand_path(os.getenv("PARENT_LOCAL", ""))
 
 def box_delay(sec: int) -> None:
     time.sleep(sec)
+
 
 def fetch_data_files() -> None:
     try:
@@ -266,6 +269,53 @@ def create_term_tree() -> None:
         return
 
 
+def fetch_cr() -> None:
+    try:
+        cache = load_proj_cache(PROJ_CACHE)
+        sole_id, proj_name, term, chapters = get_term_details(cache)
+
+        client = init_client()
+
+        if not client:
+            raise RuntimeError("Failed to create Box client.")
+
+        parent = BOX_PARENT  #Initialise parent to project parent Box folder.
+
+        # Find Client revision parent folder where files to be downloaded are store,
+        # usually PPTX file from "07" folder.
+        # 07 folder has inconsistent folder structure : 07... >>> V1 >>> First Batch, etc.
+        # parent >> term >> "07 Client Correction"
+        for folder_name in [term, "07"]:
+            target = find_box_entry_by_name(
+                client, parent, "folder", folder_name, True
+            )
+
+            if target:  # source becomes parent.
+                parent = parse_box_url("folder", target.id)
+            else:
+                raise RuntimeError("Failed to trace parentage.")
+
+        display_message("INFO", f"Find Client revision file starting at {parent}.")
+        rev_url = input("\n>>> Enter revision file URL : ").strip()
+
+        if rev_url:
+            entry_id = extract_entry_meta(rev_url)[1]
+            cr_name = f"{datetime.now().strftime("%Y%m%d")} {proj_name} CR - 1.pptx"
+
+            display_message("INFO", f"Downloading Client revision file (ID : {entry_id}) ... ")
+            dl_box_entry(
+                client,
+                entry_id,
+                parse_pathname(PARENT_LOCAL, proj_name, cr_name, "folder")
+            )
+
+        box_delay(1)    #1-sec delay between files.
+
+    except Exception as e:  # noqa: BLE001
+        display_message("ERROR", "Failed to fetch translation document.", f"{e}")
+        return
+
+
 if __name__ == "__main__":
     welcome_sequence([mod_name, f"ver {mod_ver} {date}", email])
 
@@ -284,16 +334,16 @@ if __name__ == "__main__":
                 # "\n>>>  Revert B[O]x filenames ?"
                 "\n>>>  [C]reate typesetting term folder ?"
                 # "\n>>>  [M]ove PDF files to term folder ?"
-                # "\n>>>  F[E]tch revision file/tab ?"
                 "\n>>>  Fetc[H] translation file/s ?"
                 "\n>>>  [D]ownload source files ?"
                 # "\n>>>  Copy [T]ypesetting files to Revisions folder ?"
+                "\n>>>  F[E]tch revision file ?"
                 "\n>>>  E[X]it and close this window ?"
             )
 
             resp = input(">>> ").upper()
 
-            proper_resp = resp in ["C", "D", "H", "X"]
+            proper_resp = resp in ["C", "D", "E", "H", "X"]
 
         if resp == "X":
             print("\n<=> Closing down ...")
@@ -310,3 +360,6 @@ if __name__ == "__main__":
 
             elif resp == "D":
                 fetch_data_files()
+
+            elif resp == "E":
+                fetch_cr()
