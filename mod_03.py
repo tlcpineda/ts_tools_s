@@ -19,8 +19,8 @@ from lib import (
 
 # Module variables
 mod_name = "Compile Revision Files"
-mod_ver = "1"
-date = "26 Oct 2026"
+mod_ver = "2"
+date = "19 Nov 2026"
 email = "tlcpineda.projects@gmail.com"
 compile_dir_base = "COMPILED TO PDF"
 jpeg_res = 72  # dpi
@@ -42,6 +42,7 @@ def compile_revision() -> None:
     parent, base = display_path_desc(input_path, "folder")
     psd_dir, jpeg_dir, pdf_name = gen_revision_pathnames(parent, base)
     psd_files = filter_files(input_path)
+    is_cr = "CR" in base
 
     if not psd_files:
         print("\n<=> No PSD file fit to be compiled.")
@@ -93,8 +94,10 @@ def compile_revision() -> None:
             for_pdf_pages = [p for p in for_pdf_pages if p.strip()]
             compile_pdf_file(for_pdf_pages, pdf_name)
 
-        #Clean up JPEG folder in revision folder; JPEG files not required in PROJECT S.
-        del_jpeg(jpeg_dir)
+        #Clean up JPEG folder in revision folder;
+        # JPEG files required in PROJECT S for Client revisions only.
+        if not is_cr:
+            del_jpeg(jpeg_dir)
 
         return
 
@@ -103,7 +106,9 @@ def compile_revision() -> None:
 
         return
 
+
 # JPEG files not required in PROJECT S; needed as intermediate step to compile PDF.
+# but required in CR files preparation and submission.
 def save_jpeg(rgb: Image.Image, dest_path: str, jpeg_name: str) -> str:
     jpeg_path = parse_pathname(dest_path, jpeg_name, "jpg", "file")
 
@@ -120,6 +125,7 @@ def save_jpeg(rgb: Image.Image, dest_path: str, jpeg_name: str) -> str:
         display_message("ERROR", "Failed to save file.", f"{e}")
 
         return ""
+
 
 def del_jpeg(dest_path: str) -> None:
     """Delete the temporary JPEG folder and its contents using os."""
@@ -186,7 +192,11 @@ def gen_revision_pathnames(parent_dir: str, basename: str) -> tuple[str, ...]:
     psd_path = ""
     jpeg_path = ""
     pdf_path = ""
-    ch_num, is_main_ch = clean_number(basename.split("_")[-1].strip())
+
+    # " - CR" appended to folder name, in the case of Client revisions.
+    ch_num0 = basename.split("_")[-1].strip()
+    is_cr = "CR" in ch_num0
+    ch_num, is_main_ch = clean_number(ch_num0.split()[0].split("-")[-1] if is_cr else ch_num0)
     current_num_rev_dir = count_rev_dirs(parent_dir, is_main_ch)
 
     display_message(
@@ -195,13 +205,12 @@ def gen_revision_pathnames(parent_dir: str, basename: str) -> tuple[str, ...]:
     )
 
     try:
-        current_rev_dir = f"{compile_dir_base}{current_num_rev_dir}"
+        current_rev_dir = f"{compile_dir_base}{current_num_rev_dir}{" - CR" if is_cr else ""}"
 
         psd_path = parse_pathname(parent_dir, current_rev_dir, "PSD", "folder")
         jpeg_path = parse_pathname(parent_dir, current_rev_dir, "JPEG", "folder")
         pdf_path = parse_pathname(
             os.path.join(parent_dir, current_rev_dir),
-            # ch_num if ch_num.startswith("EX") else f"CH{ch_num}",
             basename,
             "pdf",
             "file",
